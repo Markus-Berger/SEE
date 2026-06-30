@@ -11,7 +11,9 @@ The format uses three file types:
 The core distinction is:
 
 - **SceneObjects** describe bounded things: walls, pipes, doors, slabs, beams, rooms, sensors, terrain objects.
-- **VolumeFields** describe continuous spatial phenomena: smell, sound, temperature, stress, humidity, interpolation results.
+- **VolumeFields** describe continuous spatial phenomena: smell, sound, temperature, humidity.
+
+The two worlds are linked by their shared coordinate system, and a **VolumeField** called `substance`, which tracks which material occupies each grid cell.
 
 During an inspection, sensory observations are stored either as object-bound **Impressions** or field-bound **FieldImpressions**.
 
@@ -23,8 +25,9 @@ During an inspection, sensory observations are stored either as object-bound **I
 example_project/
   building.sem
   inspection_1.sei
-  olfactory_musty_interpolated.npz
-  thermal_interpolated.npz
+  substance.npz
+  thermal.npz
+  olfactory_musty.npz
 ```
 
 A `.sem` file can be reused by many `.sei` files. A `.sei` file references exactly one `.sem` file.
@@ -71,12 +74,14 @@ A `.sem` file stores the reusable scene model: coordinate system, shared voxel g
       "material": "plaster on masonry",
       "vertices": [[1.0, 2.0, 0.0], [1.0, 4.0, 0.0], [1.0, 4.0, 3.0]],
       "faces": [[0, 1, 2]]
-      }
     }
   ],
   "volume_fields": [
     {
-      "id": "olfactory-musty-field",
+      "name": "substance",
+      "file": "substance.npz"
+    },
+    {
       "name": "olfactory-musty",
       "file": "olfactory-musty.npz"
     }
@@ -88,24 +93,24 @@ A `.sem` file stores the reusable scene model: coordinate system, shared voxel g
 
 ## `.sei` — Situated Experience Investigation
 
-A `.sei` file stores the inspection layer: observations, sensory impressions, reasoning results, and generated fields.
+A `.sei` file stores the inspection layer: observations, sensory impressions, and reasoning results.
 
 ```json
 {
   "see_format": "SEI",
-  "id": "inspection-001",
+  "id": "inspection-1",
   "sem_ref": "building.sem",
   "theme": "Structural health monitoring",
   "created_at": "2026-06-30T09:00:00.000Z",
   "reference": [
     {
-      "id": "ref-001",
+      "id": "ref-1",
       "name": "wall upper right corner",
       "coordinates": [0.9, 3.67, 2.8],
       "element_reference": 33,
       "impressions": [
         {
-          "id": "imp-001",
+          "id": "imp-1",
           "sense": "haptic_tactile",
           "statement": "There is slight bulging in the plaster.",
           "created_at": "2026-06-30T09:15:00.000Z"
@@ -117,7 +122,7 @@ A `.sei` file stores the inspection layer: observations, sensory impressions, re
   ],
   "field_impressions": [
     {
-      "id": "field-imp-001",
+      "id": "field-imp-1",
       "sense": "olfactory",
       "coordinates": [1.0, 3.0, 1.4],
       "intensity": 0.5,
@@ -141,7 +146,7 @@ Required array:
 values[x_index, y_index, z_index]
 ```
 
-The `values` array must have the same shape as `voxel_grid.shape` in the referenced `.sem` file.
+The `values` array must have the same shape as `voxel_grid.shape` in the referenced `.sem` file. Each value is either a number from `0.0` to `1.0`, or in the case of the `susbtance` voxel field, a string derived from the `material` property of the SceneObject that occupies the center of the cell.
 
 Example:
 
@@ -157,7 +162,7 @@ np.savez_compressed("olfactory-musty.npz", values=values)
 
 ---
 
-## Validation rules
+## Validation
 
 A SEE dataset is valid if:
 
@@ -165,7 +170,8 @@ A SEE dataset is valid if:
 2. The `.sei` file has `see_format: "SEI"` and a valid `sem_ref`.
 3. All coordinates use the `.sem` coordinate reference.
 4. All `.npz` arrays match `voxel_grid.shape`.
-5. Every `element_reference` references an existing `SceneObject`.
+5. The `.sem` file references one `.npz` file with the name `substance`. This array contains string values.
+6. Every `element_reference` references an existing `SceneObject`.
 7. Every `FieldImpression.intensity` is between `0.0` and `1.0`.
 8. `Impression` uses object-bound senses; `FieldImpression` uses field-bound senses.
 
